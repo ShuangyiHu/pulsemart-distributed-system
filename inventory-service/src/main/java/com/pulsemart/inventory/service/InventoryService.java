@@ -13,6 +13,8 @@ import com.pulsemart.shared.event.payload.InventoryReleasedPayload;
 import com.pulsemart.shared.event.payload.InventoryReservedPayload;
 import com.pulsemart.shared.event.payload.OrderCreatedPayload;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
