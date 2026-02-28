@@ -1,7 +1,10 @@
-package com.pulsemart.order.domain;
+package com.pulsemart.inventory.domain;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -10,11 +13,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "outbox")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class OutboxEvent {
 
     @Id
@@ -24,7 +26,7 @@ public class OutboxEvent {
     @Column(name = "event_id", nullable = false, unique = true)
     private UUID eventId;
 
-    @Column(name = "event_type", nullable = false, length = 60)
+    @Column(name = "event_type", nullable = false)
     private String eventType;
 
     @Column(name = "aggregate_id", nullable = false)
@@ -35,13 +37,11 @@ public class OutboxEvent {
     private String payload;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private OutboxStatus status = OutboxStatus.PENDING;
+    @Column(nullable = false)
+    private OutboxStatus status;
 
     @Column(name = "retry_count", nullable = false)
-    @Builder.Default
-    private int retryCount = 0;
+    private int retryCount;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
