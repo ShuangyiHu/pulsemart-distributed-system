@@ -34,6 +34,7 @@ public class InventoryService {
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final Tracer tracer;
 
     /**
      * Attempt to reserve stock for each item in the order.
@@ -42,55 +43,65 @@ public class InventoryService {
      */
     @Transactional
     public void reserveStock(UUID orderId, List<OrderCreatedPayload.OrderItemPayload> items) {
-        for (OrderCreatedPayload.OrderItemPayload item : items) {
-            Product product = productRepository.findByIdForUpdate(item.getProductId())
-                    .orElse(null);
+        Span span = tracer.nextSpan().name("inventory.reserve");
+        try (Tracer.SpanInScope ignored = tracer.withSpan(span.start())) {
+            span.tag("order.id", orderId.toString());
+            span.tag("items.count", String.valueOf(items.size()));
 
-            int available = product == null ? 0 : product.getStockQuantity();
-            if (product == null || available < item.getQuantity()) {
-                String reason = product == null
-                        ? "Product not found: " + item.getProductId()
-                        : "Insufficient stock for product " + item.getProductId()
-                          + " (available=" + available + ", requested=" + item.getQuantity() + ")";
-                log.warn("Inventory insufficient for orderId={}: {}", orderId, reason);
+            for (OrderCreatedPayload.OrderItemPayload item : items) {
+                Product product = productRepository.findByIdForUpdate(item.getProductId())
+                        .orElse(null);
 
-                saveOutboxEvent(EventType.INVENTORY_FAILED.name(), orderId,
-                        InventoryFailedPayload.builder()
-                                .orderId(orderId)
-                                .productId(item.getProductId())
-                                .requestedQuantity(item.getQuantity())
-                                .availableQuantity(available)
-                                .reason(reason)
-                                .build());
+                int available = product == null ? 0 : product.getStockQuantity();
+                if (product == null || available < item.getQuantity()) {
+                    String reason = product == null
+                            ? "Product not found: " + item.getProductId()
+                            : "Insufficient stock for product " + item.getProductId()
+                              + " (available=" + available + ", requested=" + item.getQuantity() + ")";
+                    log.warn("Inventory insufficient for orderId={}: {}", orderId, reason);
 
-                meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "failed").increment();
-                return; // outbox row will be committed, reservation aborted
+                    saveOutboxEvent(EventType.INVENTORY_FAILED.name(), orderId,
+                            InventoryFailedPayload.builder()
+                                    .orderId(orderId)
+                                    .productId(item.getProductId())
+                                    .requestedQuantity(item.getQuantity())
+                                    .availableQuantity(available)
+                                    .reason(reason)
+                                    .build());
+
+                    span.tag("inventory.outcome", "failed");
+                    meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "failed").increment();
+                    return;
+                }
+
+                product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
+                productRepository.save(product);
+
+                reservationRepository.save(Reservation.builder()
+                        .orderId(orderId)
+                        .productId(item.getProductId())
+                        .quantity(item.getQuantity())
+                        .status(ReservationStatus.RESERVED)
+                        .build());
             }
 
-            product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
-            productRepository.save(product);
+            UUID reservationId = UUID.randomUUID();
+            OrderCreatedPayload.OrderItemPayload first = items.get(0);
+            saveOutboxEvent(EventType.INVENTORY_RESERVED.name(), orderId,
+                    InventoryReservedPayload.builder()
+                            .orderId(orderId)
+                            .reservationId(reservationId)
+                            .productId(first.getProductId())
+                            .quantity(first.getQuantity())
+                            .build());
 
-            reservationRepository.save(Reservation.builder()
-                    .orderId(orderId)
-                    .productId(item.getProductId())
-                    .quantity(item.getQuantity())
-                    .status(ReservationStatus.RESERVED)
-                    .build());
+            span.tag("inventory.outcome", "reserved");
+            span.tag("reservation.id", reservationId.toString());
+            log.info("Inventory reserved for orderId={} reservationId={}", orderId, reservationId);
+            meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "reserved").increment();
+        } finally {
+            span.end();
         }
-
-        // All items reserved — emit one INVENTORY_RESERVED per order
-        UUID reservationId = UUID.randomUUID();
-        OrderCreatedPayload.OrderItemPayload first = items.get(0);
-        saveOutboxEvent(EventType.INVENTORY_RESERVED.name(), orderId,
-                InventoryReservedPayload.builder()
-                        .orderId(orderId)
-                        .reservationId(reservationId)
-                        .productId(first.getProductId())
-                        .quantity(first.getQuantity())
-                        .build());
-
-        log.info("Inventory reserved for orderId={} reservationId={}", orderId, reservationId);
-        meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "reserved").increment();
     }
 
     /**
@@ -99,34 +110,44 @@ public class InventoryService {
      */
     @Transactional
     public void releaseStock(UUID orderId) {
-        List<Reservation> reserved = reservationRepository
-                .findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
+        Span span = tracer.nextSpan().name("inventory.release");
+        try (Tracer.SpanInScope ignored = tracer.withSpan(span.start())) {
+            span.tag("order.id", orderId.toString());
 
-        if (reserved.isEmpty()) {
-            log.warn("No RESERVED reservations found for orderId={} — nothing to release", orderId);
-            return;
+            List<Reservation> reserved = reservationRepository
+                    .findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
+
+            if (reserved.isEmpty()) {
+                log.warn("No RESERVED reservations found for orderId={} — nothing to release", orderId);
+                span.tag("inventory.outcome", "no_reservations");
+                return;
+            }
+
+            for (Reservation r : reserved) {
+                productRepository.findByIdForUpdate(r.getProductId()).ifPresent(product -> {
+                    product.setStockQuantity(product.getStockQuantity() + r.getQuantity());
+                    productRepository.save(product);
+                });
+                r.setStatus(ReservationStatus.RELEASED);
+                reservationRepository.save(r);
+            }
+
+            Reservation first = reserved.get(0);
+            saveOutboxEvent(EventType.INVENTORY_RELEASED.name(), orderId,
+                    InventoryReleasedPayload.builder()
+                            .orderId(orderId)
+                            .productId(first.getProductId())
+                            .quantity(first.getQuantity())
+                            .reason("Payment failed or order cancelled")
+                            .build());
+
+            span.tag("inventory.outcome", "released");
+            span.tag("reservations.released", String.valueOf(reserved.size()));
+            log.info("Inventory released for orderId={}", orderId);
+            meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "released").increment();
+        } finally {
+            span.end();
         }
-
-        for (Reservation r : reserved) {
-            productRepository.findByIdForUpdate(r.getProductId()).ifPresent(product -> {
-                product.setStockQuantity(product.getStockQuantity() + r.getQuantity());
-                productRepository.save(product);
-            });
-            r.setStatus(ReservationStatus.RELEASED);
-            reservationRepository.save(r);
-        }
-
-        Reservation first = reserved.get(0);
-        saveOutboxEvent(EventType.INVENTORY_RELEASED.name(), orderId,
-                InventoryReleasedPayload.builder()
-                        .orderId(orderId)
-                        .productId(first.getProductId())
-                        .quantity(first.getQuantity())
-                        .reason("Payment failed or order cancelled")
-                        .build());
-
-        log.info("Inventory released for orderId={}", orderId);
-        meterRegistry.counter("pulsemart.inventory.reservations", "outcome", "released").increment();
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
