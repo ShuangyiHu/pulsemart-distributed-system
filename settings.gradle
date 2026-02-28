@@ -1,0 +1,9 @@
+rootProject.name = 'pulsemart-distributed-system'
+
+include(
+    'shared-lib',
+    'api-gateway',
+    'order-service',
+    'inventory-service',
+    'payment-service'
+)

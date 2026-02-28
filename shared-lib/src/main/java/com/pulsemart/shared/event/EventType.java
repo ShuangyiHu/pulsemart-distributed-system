@@ -1,0 +1,13 @@
+package com.pulsemart.shared.event;
+
+public enum EventType {
+    ORDER_CREATED,
+    INVENTORY_RESERVED,
+    INVENTORY_FAILED,
+    INVENTORY_RELEASED,
+    PAYMENT_INITIATED,
+    PAYMENT_SUCCEEDED,
+    PAYMENT_FAILED,
+    ORDER_CANCELLED,
+    ORDER_COMPLETED
+}
