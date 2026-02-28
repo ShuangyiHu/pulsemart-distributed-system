@@ -2,6 +2,8 @@ package com.pulsemart.order.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -28,6 +30,7 @@ public class OutboxEvent {
     @Column(name = "aggregate_id", nullable = false)
     private UUID aggregateId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String payload;
 
