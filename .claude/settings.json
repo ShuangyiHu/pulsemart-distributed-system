@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :payment-service:compileJava :payment-service:compileTestJava)",
+      "Bash(./gradlew :payment-service:test)",
+      "Bash(./gradlew :payment-service:test --info)"
+    ],
+    "additionalDirectories": [
+      "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"
+    ]
+  }
+}
