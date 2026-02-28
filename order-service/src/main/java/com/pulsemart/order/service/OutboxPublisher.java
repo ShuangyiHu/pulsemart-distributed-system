@@ -4,7 +4,9 @@ import com.pulsemart.order.domain.OutboxEvent;
 import com.pulsemart.order.domain.OutboxStatus;
 import com.pulsemart.order.repository.OutboxRepository;
 import com.pulsemart.shared.event.EventType;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -34,6 +36,22 @@ public class OutboxPublisher {
     private final OutboxRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final MeterRegistry meterRegistry;
+
+    /**
+     * Register the outbox pending gauge once at startup with a supplier.
+     * Micrometer holds a strong reference to the lambda (not to a transient Number),
+     * so the gauge correctly reflects the live DB count on every scrape.
+     */
+    @PostConstruct
+    void registerMetrics() {
+        Gauge.builder("pulsemart.outbox.pending_events",
+                        outboxRepository,
+                        repo -> repo.countByStatus(OutboxStatus.PENDING))
+                .tag("service", "order-service")
+                .description("Number of outbox events waiting to be published")
+                .strongReference(true)
+                .register(meterRegistry);
+    }
 
     /**
      * Polls every second for PENDING outbox rows.
@@ -76,11 +94,5 @@ public class OutboxPublisher {
             }
             outboxRepository.save(event);
         }
-
-        // Update gauge: how many rows are still pending
-        long pending = outboxRepository.countByStatus(OutboxStatus.PENDING);
-        meterRegistry.gauge("pulsemart.outbox.pending_events",
-                List.of(io.micrometer.core.instrument.Tag.of("service", "order-service")),
-                pending);
     }
 }
