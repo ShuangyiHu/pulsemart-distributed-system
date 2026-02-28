@@ -3,7 +3,11 @@
     "allow": [
       "Bash(./gradlew :payment-service:compileJava :payment-service:compileTestJava)",
       "Bash(./gradlew :payment-service:test)",
-      "Bash(./gradlew :payment-service:test --info)"
+      "Bash(./gradlew :payment-service:test --info)",
+      "Bash(docker ps --format \"{{.Names}}\")",
+      "Bash(docker ps --format \"{{.Names}}\\\\t{{.Ports}}\")",
+      "Bash(pkill -f \"order-service.*\\\\.jar\")",
+      "Bash(pgrep -af \"order-service\\\\|bootRun.*order\")"
     ],
     "additionalDirectories": [
       "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"

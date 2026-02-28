@@ -5,6 +5,10 @@ import com.pulsemart.order.repository.ProcessedEventRepository;
 import com.pulsemart.order.service.OrderService;
 import com.pulsemart.shared.event.EventEnvelope;
 import com.pulsemart.shared.event.EventType;
+import com.pulsemart.shared.event.payload.InventoryFailedPayload;
+import com.pulsemart.shared.event.payload.InventoryReservedPayload;
+import com.pulsemart.shared.event.payload.PaymentFailedPayload;
+import com.pulsemart.shared.event.payload.PaymentSucceededPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -38,9 +42,14 @@ public class OrderEventConsumer {
         log.info("OrderEventConsumer received: eventType={} eventId={}", type, envelope.getEventId());
 
         if (EventType.INVENTORY_RESERVED.name().equals(type)) {
-            // TODO Phase 5: extract payload and call orderService.markInventoryReserved(...)
+            InventoryReservedPayload payload = objectMapper.convertValue(
+                    envelope.getPayload(), InventoryReservedPayload.class);
+            orderService.markInventoryReserved(payload.getOrderId(), payload.getReservationId());
+
         } else if (EventType.INVENTORY_FAILED.name().equals(type)) {
-            // TODO Phase 5: extract payload and call orderService.markCancelled(...)
+            InventoryFailedPayload payload = objectMapper.convertValue(
+                    envelope.getPayload(), InventoryFailedPayload.class);
+            orderService.markCancelled(payload.getOrderId(), payload.getReason());
         }
     }
 
@@ -59,9 +68,14 @@ public class OrderEventConsumer {
         log.info("OrderEventConsumer received: eventType={} eventId={}", type, envelope.getEventId());
 
         if (EventType.PAYMENT_SUCCEEDED.name().equals(type)) {
-            // TODO Phase 5: extract payload and call orderService.markCompleted(...)
+            PaymentSucceededPayload payload = objectMapper.convertValue(
+                    envelope.getPayload(), PaymentSucceededPayload.class);
+            orderService.markCompleted(payload.getOrderId(), payload.getPaymentId());
+
         } else if (EventType.PAYMENT_FAILED.name().equals(type)) {
-            // TODO Phase 5: extract payload and call orderService.markCancelled(...)
+            PaymentFailedPayload payload = objectMapper.convertValue(
+                    envelope.getPayload(), PaymentFailedPayload.class);
+            orderService.markCancelled(payload.getOrderId(), payload.getFailureReason());
         }
     }
 

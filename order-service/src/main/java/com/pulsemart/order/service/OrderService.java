@@ -140,11 +140,13 @@ public class OrderService {
         log.info("Order CANCELLED: orderId={} reason={}", orderId, reason);
     }
 
+    @Transactional(readOnly = true)
     public Order getOrder(UUID orderId) {
-        return orderRepository.findById(orderId)
+        return orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
     }
 
+    @Transactional(readOnly = true)
     public List<Order> getOrdersByCustomer(UUID customerId) {
         return orderRepository.findByCustomerId(customerId);
     }
