@@ -1,0 +1,23 @@
+spring:
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6370   # unused port — Redis is not tested here
+
+management:
+  tracing:
+    enabled: false
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces   # no-op in tests
+
+logging:
+  level:
+    com.pulsemart: DEBUG
+    org.flywaydb: INFO
