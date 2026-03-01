@@ -1,0 +1,9 @@
+.item-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.item-row .form-group { flex: 1; margin-bottom: 0; }
+.item-row .form-group.qty { width: 100px; flex: none; }
+.item-row .form-group.price { width: 120px; flex: none; }

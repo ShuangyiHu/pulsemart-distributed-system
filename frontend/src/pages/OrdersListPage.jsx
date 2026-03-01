@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
+import './OrdersListPage.css';
 
 const STATUS_COLORS = {
   PENDING: '#f59e0b',
@@ -37,7 +38,7 @@ export default function OrdersListPage() {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="orders-header">
         <h2>My Orders</h2>
         <Link to="/place-order" className="btn btn-primary">+ New Order</Link>
       </div>

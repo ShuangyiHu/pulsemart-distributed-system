@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import './LoginPage.css';
 
 export default function LoginPage() {
   const [userId, setUserId] = useState('');
@@ -25,8 +26,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="page">
-      <div className="card" style={{ maxWidth: 420, margin: '80px auto' }}>
+    <div className="page login-page">
+      <div className="card">
         <h2>Sign In</h2>
         <p className="text-muted">Enter your user and customer ID to get a JWT token.</p>
         <form onSubmit={handleSubmit}>

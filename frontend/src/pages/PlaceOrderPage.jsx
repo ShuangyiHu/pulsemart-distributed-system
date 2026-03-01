@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
+import './PlaceOrderPage.css';
 
 export default function PlaceOrderPage() {
   const { customerId } = useAuth();
@@ -83,7 +84,7 @@ export default function PlaceOrderPage() {
                   placeholder="Widget Pro"
                 />
               </div>
-              <div className="form-group" style={{ width: 100 }}>
+              <div className="form-group qty">
                 <label>Qty</label>
                 <input
                   type="number"
@@ -93,7 +94,7 @@ export default function PlaceOrderPage() {
                   required
                 />
               </div>
-              <div className="form-group" style={{ width: 120 }}>
+              <div className="form-group price">
                 <label>Unit Price</label>
                 <input
                   type="number"

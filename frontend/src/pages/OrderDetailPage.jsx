@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import client from '../api/client';
+import './OrderDetailPage.css';
 
 const STATUS_COLORS = {
   PENDING: '#f59e0b',
