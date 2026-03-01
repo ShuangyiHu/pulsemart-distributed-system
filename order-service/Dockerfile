@@ -1,5 +1,5 @@
 # ── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM eclipse-temurin:17-jdk AS builder
 WORKDIR /workspace
 
 # Copy Gradle wrapper and build files first (layer caching)
@@ -19,7 +19,7 @@ COPY order-service/src order-service/src
 RUN ./gradlew :order-service:bootJar --no-daemon -x test
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Download OpenTelemetry Java agent

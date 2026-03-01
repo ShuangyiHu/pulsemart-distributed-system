@@ -8,7 +8,6 @@ networks:
 # Infrastructure
 # ─────────────────────────────────────────────────────────────────────────────
 services:
-
   # ── Kafka (KRaft, no Zookeeper) ──────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -32,7 +31,13 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -125,9 +130,9 @@ services:
     container_name: jaeger
     networks: [pulsemart-net]
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
@@ -180,7 +185,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
-      AI_SUMMARIZER_URL: http://ai-summarizer:8088
+      AI_SUMMARIZER_URL: http://localhost:8088   # placeholder — ai-summarizer not yet deployed
     depends_on:
       order-db:
         condition: service_healthy
@@ -244,30 +249,30 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
-  api-gateway:
-    build:
-      context: ..
-      dockerfile: api-gateway/Dockerfile
-    container_name: api-gateway
-    networks: [pulsemart-net]
-    ports:
-      - "8080:8080"
-    environment:
-      ORDER_SERVICE_URL: http://order-service:8081
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
-    depends_on:
-      - order-service
+# api-gateway:
+#   build:
+#     context: ..
+#     dockerfile: api-gateway/Dockerfile
+#   container_name: api-gateway
+#   networks: [pulsemart-net]
+#   ports:
+#     - "8080:8080"
+#   environment:
+#     ORDER_SERVICE_URL: http://order-service:8081
+#     MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+#   depends_on:
+#     - order-service
 
-  ai-summarizer:
-    build:
-      context: ../ai-summarizer
-      dockerfile: Dockerfile
-    container_name: ai-summarizer
-    networks: [pulsemart-net]
-    ports:
-      - "8088:8088"
-    environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+# ai-summarizer:
+#   build:
+#     context: ../ai-summarizer
+#     dockerfile: Dockerfile
+#   container_name: ai-summarizer
+#   networks: [pulsemart-net]
+#   ports:
+#     - "8088:8088"
+#   environment:
+#     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 
 volumes:
   order-db-data:
