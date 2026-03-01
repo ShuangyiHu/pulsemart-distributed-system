@@ -14,6 +14,8 @@ import com.pulsemart.shared.event.payload.PaymentFailedPayload;
 import com.pulsemart.shared.event.payload.PaymentInitiatedPayload;
 import com.pulsemart.shared.event.payload.PaymentSucceededPayload;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +37,7 @@ public class PaymentService {
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final Tracer tracer;
 
     @Value("${payment.failure-rate:0.3}")
     private double failureRate;
@@ -48,39 +51,49 @@ public class PaymentService {
     public void processPayment(PaymentInitiatedPayload payload) {
         boolean shouldFail = RANDOM.nextDouble() < failureRate;
 
-        Payment payment = Payment.builder()
-                .orderId(payload.getOrderId())
-                .reservationId(payload.getReservationId())
-                .customerId(payload.getCustomerId())
-                .amount(payload.getAmount())
-                .status(shouldFail ? PaymentStatus.FAILED : PaymentStatus.SUCCEEDED)
-                .failureReason(shouldFail ? "Simulated payment failure" : null)
-                .build();
+        Span span = tracer.nextSpan().name("payment.process");
+        try (Tracer.SpanInScope ignored = tracer.withSpan(span.start())) {
+            span.tag("order.id", payload.getOrderId().toString());
+            span.tag("payment.failure.injected", String.valueOf(shouldFail));
 
-        paymentRepository.save(payment);
+            Payment payment = Payment.builder()
+                    .orderId(payload.getOrderId())
+                    .reservationId(payload.getReservationId())
+                    .customerId(payload.getCustomerId())
+                    .amount(payload.getAmount())
+                    .status(shouldFail ? PaymentStatus.FAILED : PaymentStatus.SUCCEEDED)
+                    .failureReason(shouldFail ? "Simulated payment failure" : null)
+                    .build();
 
-        if (shouldFail) {
-            saveOutboxEvent(EventType.PAYMENT_FAILED.name(), payload.getOrderId(),
-                    PaymentFailedPayload.builder()
-                            .orderId(payload.getOrderId())
-                            .paymentId(payment.getId())
-                            .amount(payload.getAmount())
-                            .failureReason(payment.getFailureReason())
-                            .reservationId(payload.getReservationId())
-                            .build());
+            paymentRepository.save(payment);
 
-            meterRegistry.counter("pulsemart.payment.total", "outcome", "failed").increment();
-            log.info("Payment FAILED (simulated): orderId={} paymentId={}", payload.getOrderId(), payment.getId());
-        } else {
-            saveOutboxEvent(EventType.PAYMENT_SUCCEEDED.name(), payload.getOrderId(),
-                    PaymentSucceededPayload.builder()
-                            .orderId(payload.getOrderId())
-                            .paymentId(payment.getId())
-                            .amount(payload.getAmount())
-                            .build());
+            if (shouldFail) {
+                saveOutboxEvent(EventType.PAYMENT_FAILED.name(), payload.getOrderId(),
+                        PaymentFailedPayload.builder()
+                                .orderId(payload.getOrderId())
+                                .paymentId(payment.getId())
+                                .amount(payload.getAmount())
+                                .failureReason(payment.getFailureReason())
+                                .reservationId(payload.getReservationId())
+                                .build());
 
-            meterRegistry.counter("pulsemart.payment.total", "outcome", "succeeded").increment();
-            log.info("Payment SUCCEEDED: orderId={} paymentId={}", payload.getOrderId(), payment.getId());
+                span.tag("payment.outcome", "failed");
+                meterRegistry.counter("pulsemart.payment.total", "outcome", "failed").increment();
+                log.info("Payment FAILED (simulated): orderId={} paymentId={}", payload.getOrderId(), payment.getId());
+            } else {
+                saveOutboxEvent(EventType.PAYMENT_SUCCEEDED.name(), payload.getOrderId(),
+                        PaymentSucceededPayload.builder()
+                                .orderId(payload.getOrderId())
+                                .paymentId(payment.getId())
+                                .amount(payload.getAmount())
+                                .build());
+
+                span.tag("payment.outcome", "succeeded");
+                meterRegistry.counter("pulsemart.payment.total", "outcome", "succeeded").increment();
+                log.info("Payment SUCCEEDED: orderId={} paymentId={}", payload.getOrderId(), payment.getId());
+            }
+        } finally {
+            span.end();
         }
     }
 

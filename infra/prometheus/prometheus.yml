@@ -22,3 +22,8 @@ scrape_configs:
     static_configs:
       - targets: ['api-gateway:8080']
     metrics_path: '/actuator/prometheus'
+
+  - job_name: 'ai-summarizer'
+    static_configs:
+      - targets: ['ai-summarizer:8088']
+    metrics_path: '/actuator/prometheus'

@@ -8,7 +8,6 @@ networks:
 # Infrastructure
 # ─────────────────────────────────────────────────────────────────────────────
 services:
-
   # ── Kafka (KRaft, no Zookeeper) ──────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -32,7 +31,13 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -125,9 +130,9 @@ services:
     container_name: jaeger
     networks: [pulsemart-net]
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
@@ -244,33 +249,65 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
-  api-gateway:
-    build:
-      context: ..
-      dockerfile: api-gateway/Dockerfile
-    container_name: api-gateway
+# api-gateway:
+#   build:
+#     context: ..
+#     dockerfile: api-gateway/Dockerfile
+#   container_name: api-gateway
+#   networks: [pulsemart-net]
+#   ports:
+#     - "8080:8080"
+#   environment:
+#     ORDER_SERVICE_URL: http://order-service:8081
+#     MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+#   depends_on:
+#     - order-service
+
+  summarizer-db:
+    image: postgres:16-alpine
+    container_name: summarizer-db
     networks: [pulsemart-net]
     ports:
-      - "8080:8080"
+      - "5435:5432"
     environment:
-      ORDER_SERVICE_URL: http://order-service:8081
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
-    depends_on:
-      - order-service
+      POSTGRES_DB: summarizerdb
+      POSTGRES_USER: summarizeruser
+      POSTGRES_PASSWORD: summarizerpass
+    volumes:
+      - summarizer-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U summarizeruser -d summarizerdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   ai-summarizer:
     build:
-      context: ../ai-summarizer
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ai-summarizer/Dockerfile
     container_name: ai-summarizer
     networks: [pulsemart-net]
     ports:
       - "8088:8088"
     environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://summarizer-db:5432/summarizerdb
+      SPRING_DATASOURCE_USERNAME: summarizeruser
+      SPRING_DATASOURCE_PASSWORD: summarizerpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+    depends_on:
+      summarizer-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
 volumes:
   order-db-data:
   inventory-db-data:
   payment-db-data:
+  summarizer-db-data:
   grafana-data:

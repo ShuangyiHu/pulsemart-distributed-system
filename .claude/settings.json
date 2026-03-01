@@ -7,7 +7,11 @@
       "Bash(docker ps --format \"{{.Names}}\")",
       "Bash(docker ps --format \"{{.Names}}\\\\t{{.Ports}}\")",
       "Bash(pkill -f \"order-service.*\\\\.jar\")",
-      "Bash(pgrep -af \"order-service\\\\|bootRun.*order\")"
+      "Bash(pgrep -af \"order-service\\\\|bootRun.*order\")",
+      "Bash(git checkout -b feature/observability)",
+      "Bash(./gradlew :order-service:compileJava :inventory-service:compileJava :payment-service:compileJava)",
+      "Bash(git checkout -b feature/ai-summarizer)",
+      "Bash(./gradlew :ai-summarizer:build --no-daemon -x test)"
     ],
     "additionalDirectories": [
       "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"

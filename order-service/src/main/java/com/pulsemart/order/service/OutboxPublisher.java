@@ -6,6 +6,8 @@ import com.pulsemart.order.repository.OutboxRepository;
 import com.pulsemart.shared.event.EventType;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class OutboxPublisher {
     private final OutboxRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final MeterRegistry meterRegistry;
+    private final Tracer tracer;
 
     /**
      * Register the outbox pending gauge once at startup with a supplier.
@@ -66,33 +69,41 @@ public class OutboxPublisher {
 
         log.debug("OutboxPublisher: processing {} pending events", events.size());
 
-        for (OutboxEvent event : events) {
-            String topic = TOPIC_MAP.getOrDefault(event.getEventType(), "order.events");
-            try {
-                // Synchronous send — only mark SENT after Kafka ACKs
-                kafkaTemplate.send(topic, event.getAggregateId().toString(), event.getPayload())
-                        .get(5, java.util.concurrent.TimeUnit.SECONDS);
+        Span span = tracer.nextSpan().name("outbox.publish");
+        try (Tracer.SpanInScope ignored = tracer.withSpan(span.start())) {
+            span.tag("outbox.events.count", String.valueOf(events.size()));
+            span.tag("service", "order-service");
 
-                event.setStatus(OutboxStatus.SENT);
-                event.setSentAt(Instant.now());
-                log.info("Outbox published: eventType={} eventId={} topic={}",
-                        event.getEventType(), event.getEventId(), topic);
+            for (OutboxEvent event : events) {
+                String topic = TOPIC_MAP.getOrDefault(event.getEventType(), "order.events");
+                try {
+                    kafkaTemplate.send(topic, event.getAggregateId().toString(), event.getPayload())
+                            .get(5, java.util.concurrent.TimeUnit.SECONDS);
 
-            } catch (Exception ex) {
-                int retries = event.getRetryCount() + 1;
-                event.setRetryCount(retries);
-                if (retries >= MAX_RETRIES) {
-                    event.setStatus(OutboxStatus.FAILED);
-                    meterRegistry.counter("pulsemart.outbox.failed",
-                            "eventType", event.getEventType()).increment();
-                    log.error("Outbox event permanently failed after {} retries: eventId={}",
-                            MAX_RETRIES, event.getEventId(), ex);
-                } else {
-                    log.warn("Outbox publish failed (attempt {}/{}): eventId={}",
-                            retries, MAX_RETRIES, event.getEventId(), ex);
+                    event.setStatus(OutboxStatus.SENT);
+                    event.setSentAt(Instant.now());
+                    log.info("Outbox published: eventType={} eventId={} topic={}",
+                            event.getEventType(), event.getEventId(), topic);
+
+                } catch (Exception ex) {
+                    int retries = event.getRetryCount() + 1;
+                    event.setRetryCount(retries);
+                    if (retries >= MAX_RETRIES) {
+                        event.setStatus(OutboxStatus.FAILED);
+                        meterRegistry.counter("pulsemart.outbox.failed",
+                                "eventType", event.getEventType()).increment();
+                        log.error("Outbox event permanently failed after {} retries: eventId={}",
+                                MAX_RETRIES, event.getEventId(), ex);
+                    } else {
+                        log.warn("Outbox publish failed (attempt {}/{}): eventId={}",
+                                retries, MAX_RETRIES, event.getEventId(), ex);
+                    }
+                    span.error(ex);
                 }
+                outboxRepository.save(event);
             }
-            outboxRepository.save(event);
+        } finally {
+            span.end();
         }
     }
 }
