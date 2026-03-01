@@ -249,19 +249,21 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
-# api-gateway:
-#   build:
-#     context: ..
-#     dockerfile: api-gateway/Dockerfile
-#   container_name: api-gateway
-#   networks: [pulsemart-net]
-#   ports:
-#     - "8080:8080"
-#   environment:
-#     ORDER_SERVICE_URL: http://order-service:8081
-#     MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
-#   depends_on:
-#     - order-service
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    networks: [pulsemart-net]
+    ports:
+      - "8080:8080"
+    environment:
+      ORDER_SERVICE_URL: http://order-service:8081
+      AI_SUMMARIZER_URL: http://ai-summarizer:8088
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+    depends_on:
+      - order-service
+      - ai-summarizer
 
   summarizer-db:
     image: postgres:16-alpine

@@ -14,7 +14,8 @@
       "Bash(./gradlew :ai-summarizer:build --no-daemon -x test)",
       "Bash(git checkout -b feature/api-gateway)",
       "Bash(git checkout feature/api-gateway)",
-      "Bash(./gradlew :api-gateway:bootJar --no-daemon -x test)"
+      "Bash(./gradlew :api-gateway:bootJar --no-daemon -x test)",
+      "Bash(ls /Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/README*)"
     ],
     "additionalDirectories": [
       "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"
