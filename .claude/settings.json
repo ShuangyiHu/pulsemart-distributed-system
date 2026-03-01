@@ -11,7 +11,10 @@
       "Bash(git checkout -b feature/observability)",
       "Bash(./gradlew :order-service:compileJava :inventory-service:compileJava :payment-service:compileJava)",
       "Bash(git checkout -b feature/ai-summarizer)",
-      "Bash(./gradlew :ai-summarizer:build --no-daemon -x test)"
+      "Bash(./gradlew :ai-summarizer:build --no-daemon -x test)",
+      "Bash(git checkout -b feature/api-gateway)",
+      "Bash(git checkout feature/api-gateway)",
+      "Bash(./gradlew :api-gateway:bootJar --no-daemon -x test)"
     ],
     "additionalDirectories": [
       "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"
