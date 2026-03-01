@@ -15,10 +15,12 @@
       "Bash(git checkout -b feature/api-gateway)",
       "Bash(git checkout feature/api-gateway)",
       "Bash(./gradlew :api-gateway:bootJar --no-daemon -x test)",
-      "Bash(ls /Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/README*)"
+      "Bash(ls /Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/README*)",
+      "Bash(./gradlew test --no-daemon)"
     ],
     "additionalDirectories": [
-      "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment"
+      "/Users/hushuangyi/Downloads/udemy/pulsemart-distributed-system/payment-service/src/main/java/com/pulsemart/payment",
+      "/tmp"
     ]
   }
 }

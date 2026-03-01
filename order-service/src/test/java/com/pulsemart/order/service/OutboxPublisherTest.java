@@ -5,6 +5,8 @@ import com.pulsemart.order.domain.OutboxStatus;
 import com.pulsemart.order.repository.OutboxRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,13 +34,28 @@ class OutboxPublisherTest {
     @Mock
     private KafkaTemplate<String, String> kafkaTemplate;
 
+    @Mock
+    private Tracer tracer;
+
+    @Mock
+    private Span span;
+
     private MeterRegistry meterRegistry;
     private OutboxPublisher outboxPublisher;
 
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
-        outboxPublisher = new OutboxPublisher(outboxRepository, kafkaTemplate, meterRegistry);
+
+        lenient().when(tracer.nextSpan()).thenReturn(span);
+        lenient().when(span.name(anyString())).thenReturn(span);
+        lenient().when(span.start()).thenReturn(span);
+        lenient().when(span.tag(anyString(), anyString())).thenReturn(span);
+        lenient().when(tracer.withSpan(span)).thenReturn(new Tracer.SpanInScope() {
+            @Override public void close() {}
+        });
+
+        outboxPublisher = new OutboxPublisher(outboxRepository, kafkaTemplate, meterRegistry, tracer);
         // register gauge so @PostConstruct side-effect is covered
         outboxPublisher.registerMetrics();
     }

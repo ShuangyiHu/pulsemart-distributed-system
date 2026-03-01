@@ -307,6 +307,16 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  frontend:
+    build:
+      context: ../frontend
+    container_name: frontend
+    networks: [pulsemart-net]
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api-gateway
+
 volumes:
   order-db-data:
   inventory-db-data:

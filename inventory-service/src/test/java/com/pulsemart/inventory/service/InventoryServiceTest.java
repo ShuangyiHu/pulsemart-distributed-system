@@ -11,6 +11,8 @@ import com.pulsemart.shared.event.EventType;
 import com.pulsemart.shared.event.payload.OrderCreatedPayload;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +41,12 @@ class InventoryServiceTest {
     @Mock
     private OutboxRepository outboxRepository;
 
+    @Mock
+    private Tracer tracer;
+
+    @Mock
+    private Span span;
+
     private ObjectMapper objectMapper;
     private MeterRegistry meterRegistry;
     private InventoryService inventoryService;
@@ -49,9 +57,18 @@ class InventoryServiceTest {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         meterRegistry = new SimpleMeterRegistry();
+
+        when(tracer.nextSpan()).thenReturn(span);
+        when(span.name(anyString())).thenReturn(span);
+        when(span.start()).thenReturn(span);
+        when(span.tag(anyString(), anyString())).thenReturn(span);
+        when(tracer.withSpan(span)).thenReturn(new Tracer.SpanInScope() {
+            @Override public void close() {}
+        });
+
         inventoryService = new InventoryService(
                 productRepository, reservationRepository, outboxRepository,
-                objectMapper, meterRegistry);
+                objectMapper, meterRegistry, tracer);
     }
 
     // ── reserveStock — happy path ─────────────────────────────────────────────

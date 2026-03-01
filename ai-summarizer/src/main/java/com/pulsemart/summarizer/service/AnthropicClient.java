@@ -22,11 +22,12 @@ public class AnthropicClient {
     public AnthropicClient(
             @Value("${anthropic.api-key}") String apiKey,
             @Value("${anthropic.model}") String model,
+            @Value("${anthropic.base-url:https://api.anthropic.com}") String baseUrl,
             ObjectMapper objectMapper) {
         this.model = model;
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder()
-                .baseUrl("https://api.anthropic.com")
+                .baseUrl(baseUrl)
                 .defaultHeader("x-api-key", apiKey)
                 .defaultHeader("anthropic-version", "2023-06-01")
                 .build();
