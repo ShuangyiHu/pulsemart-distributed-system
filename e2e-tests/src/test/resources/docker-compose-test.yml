@@ -1,0 +1,231 @@
+version: "3.9"
+
+networks:
+  test-net:
+    driver: bridge
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    networks: [test-net]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    networks: [test-net]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../../../../infra/kafka/init-topics.sh:/init-topics.sh
+    command: ["bash", "/init-topics.sh"]
+    restart: "no"
+
+  order-db:
+    image: postgres:16-alpine
+    networks: [test-net]
+    environment:
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: orderpass
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orderuser -d orderdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  inventory-db:
+    image: postgres:16-alpine
+    networks: [test-net]
+    environment:
+      POSTGRES_DB: inventorydb
+      POSTGRES_USER: inventoryuser
+      POSTGRES_PASSWORD: inventorypass
+    volumes:
+      - ../../../../infra/postgres/seed-inventory.sql:/docker-entrypoint-initdb.d/seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventoryuser -d inventorydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payment-db:
+    image: postgres:16-alpine
+    networks: [test-net]
+    environment:
+      POSTGRES_DB: paymentdb
+      POSTGRES_USER: paymentuser
+      POSTGRES_PASSWORD: paymentpass
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paymentuser -d paymentdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  summarizer-db:
+    image: postgres:16-alpine
+    networks: [test-net]
+    environment:
+      POSTGRES_DB: summarizerdb
+      POSTGRES_USER: summarizeruser
+      POSTGRES_PASSWORD: summarizerpass
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U summarizeruser -d summarizerdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    networks: [test-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    networks: [test-net]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  wiremock:
+    image: wiremock/wiremock:3.5.4
+    networks: [test-net]
+    volumes:
+      - ./wiremock:/home/wiremock
+    command: ["--verbose"]
+
+  # ── Application Services ────────────────────────────────────────────────────
+
+  order-service:
+    build:
+      context: ../../../..
+      dockerfile: order-service/Dockerfile
+    networks: [test-net]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/orderdb
+      SPRING_DATASOURCE_USERNAME: orderuser
+      SPRING_DATASOURCE_PASSWORD: orderpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      AI_SUMMARIZER_URL: http://ai-summarizer:8088
+    depends_on:
+      order-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  inventory-service:
+    build:
+      context: ../../../..
+      dockerfile: inventory-service/Dockerfile
+    networks: [test-net]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventorydb
+      SPRING_DATASOURCE_USERNAME: inventoryuser
+      SPRING_DATASOURCE_PASSWORD: inventorypass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  payment-service:
+    build:
+      context: ../../../..
+      dockerfile: payment-service/Dockerfile
+    networks: [test-net]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://payment-db:5432/paymentdb
+      SPRING_DATASOURCE_USERNAME: paymentuser
+      SPRING_DATASOURCE_PASSWORD: paymentpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      PAYMENT_FAILURE_RATE: "${PAYMENT_FAILURE_RATE:-0}"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  ai-summarizer:
+    build:
+      context: ../../../..
+      dockerfile: ai-summarizer/Dockerfile
+    networks: [test-net]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://summarizer-db:5432/summarizerdb
+      SPRING_DATASOURCE_USERNAME: summarizeruser
+      SPRING_DATASOURCE_PASSWORD: summarizerpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      ANTHROPIC_API_KEY: test-key
+      ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+      ANTHROPIC_BASE_URL: http://wiremock:8080
+    depends_on:
+      summarizer-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      wiremock:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: ../../../..
+      dockerfile: api-gateway/Dockerfile
+    networks: [test-net]
+    ports:
+      - "8080"
+    environment:
+      ORDER_SERVICE_URL: http://order-service:8081
+      AI_SUMMARIZER_URL: http://ai-summarizer:8088
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+    depends_on:
+      - order-service
+      - ai-summarizer

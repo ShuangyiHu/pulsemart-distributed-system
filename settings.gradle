@@ -6,5 +6,6 @@ include(
     'order-service',
     'inventory-service',
     'payment-service',
-    'ai-summarizer'
+    'ai-summarizer',
+    'e2e-tests'
 )

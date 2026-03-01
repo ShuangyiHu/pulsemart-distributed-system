@@ -20,9 +20,17 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:3001"
             allowedMethods: "*"
             allowedHeaders: "*"
+            exposedHeaders: "Authorization"
+            allowCredentials: true
+
+jwt:
+  public-key: classpath:keys/app.pub
+  private-key: classpath:keys/app.key
 
 management:
   endpoints:

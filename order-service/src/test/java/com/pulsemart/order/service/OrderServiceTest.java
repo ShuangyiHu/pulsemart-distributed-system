@@ -108,7 +108,7 @@ class OrderServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         Order order = existingOrder(orderId, OrderStatus.PENDING);
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         orderService.markInventoryReserved(orderId, reservationId);
@@ -128,7 +128,7 @@ class OrderServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
         Order order = existingOrder(orderId, OrderStatus.PAYMENT_PENDING);
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         orderService.markCompleted(orderId, paymentId);
@@ -147,7 +147,7 @@ class OrderServiceTest {
     void markCancelled_shouldSetStatusToCancelledAndEmitOutbox() {
         UUID orderId = UUID.randomUUID();
         Order order = existingOrder(orderId, OrderStatus.PENDING);
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         orderService.markCancelled(orderId, "Inventory insufficient");
@@ -166,7 +166,7 @@ class OrderServiceTest {
     @Test
     void getOrder_shouldThrowWhenOrderNotFound() {
         UUID orderId = UUID.randomUUID();
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> orderService.getOrder(orderId))
                 .isInstanceOf(IllegalArgumentException.class)
