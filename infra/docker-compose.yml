@@ -185,7 +185,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
-      AI_SUMMARIZER_URL: http://localhost:8088   # placeholder — ai-summarizer not yet deployed
+      AI_SUMMARIZER_URL: http://ai-summarizer:8088
     depends_on:
       order-db:
         condition: service_healthy
@@ -263,19 +263,51 @@ services:
 #   depends_on:
 #     - order-service
 
-# ai-summarizer:
-#   build:
-#     context: ../ai-summarizer
-#     dockerfile: Dockerfile
-#   container_name: ai-summarizer
-#   networks: [pulsemart-net]
-#   ports:
-#     - "8088:8088"
-#   environment:
-#     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  summarizer-db:
+    image: postgres:16-alpine
+    container_name: summarizer-db
+    networks: [pulsemart-net]
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: summarizerdb
+      POSTGRES_USER: summarizeruser
+      POSTGRES_PASSWORD: summarizerpass
+    volumes:
+      - summarizer-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U summarizeruser -d summarizerdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ai-summarizer:
+    build:
+      context: ..
+      dockerfile: ai-summarizer/Dockerfile
+    container_name: ai-summarizer
+    networks: [pulsemart-net]
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://summarizer-db:5432/summarizerdb
+      SPRING_DATASOURCE_USERNAME: summarizeruser
+      SPRING_DATASOURCE_PASSWORD: summarizerpass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+    depends_on:
+      summarizer-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
 volumes:
   order-db-data:
   inventory-db-data:
   payment-db-data:
+  summarizer-db-data:
   grafana-data:
