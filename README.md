@@ -124,10 +124,10 @@ The API Gateway uses **JWT OAuth2 Resource Server** with RSA asymmetric keys.
 # 1. Get a JWT token (demo — no credential validation)
 curl -X POST http://localhost:8080/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"userId":"user-001","customerId":"cust-001"}'
+  -d '{"userId":"user-001","customerId":"11111111-1111-1111-1111-111111111111"}'
 
 # 2. Use the token for protected endpoints
-curl http://localhost:8080/orders \
+curl "http://localhost:8080/orders?customerId=11111111-1111-1111-1111-111111111111" \
   -H "Authorization: Bearer <token>"
 
 # 3. Public endpoints (no token required)
@@ -152,9 +152,9 @@ curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
   -d '{
-    "customerId": "cust-001",
+    "customerId": "11111111-1111-1111-1111-111111111111",
     "items": [
-      { "productId": "prod-001", "productName": "Widget", "quantity": 2, "unitPrice": 29.99 }
+      { "productId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "quantity": 2, "unitPrice": 29.99 }
     ]
   }'
 
@@ -162,7 +162,8 @@ curl -X POST http://localhost:8080/orders \
 curl http://localhost:8080/orders/{orderId} -H "Authorization: Bearer <token>"
 
 # Get all orders for a customer
-curl "http://localhost:8080/orders?customerId=cust-001" -H "Authorization: Bearer <token>"
+curl "http://localhost:8080/orders?customerId=11111111-1111-1111-1111-111111111111" \
+  -H "Authorization: Bearer <token>"
 
 # Get AI summary for an order (public)
 curl http://localhost:8080/summaries/{orderId}

@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
 export default function LoginPage() {
-  const [userId, setUserId] = useState('');
-  const [customerId, setCustomerId] = useState('');
+  const [userId, setUserId] = useState('user-001');
+  const [customerId, setCustomerId] = useState('11111111-1111-1111-1111-111111111111');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -47,7 +47,7 @@ export default function LoginPage() {
               type="text"
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
-              placeholder="e.g. cust-001"
+              placeholder="e.g. 11111111-1111-1111-1111-111111111111"
               required
             />
           </div>
