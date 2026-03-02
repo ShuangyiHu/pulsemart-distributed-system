@@ -96,10 +96,11 @@ graph TB
 
 ```bash
 # Build all backend service JARs
+cd backend
 ./gradlew bootJar
 
 # Start everything (infra + backend + frontend)
-cd infra
+cd ../infra
 ANTHROPIC_API_KEY=your-key-here docker compose up -d
 ```
 
@@ -218,6 +219,7 @@ Full saga end-to-end tests using TestContainers Docker Compose + WireMock (to mo
 
 ```bash
 # Build all service JARs first
+cd backend
 ./gradlew bootJar
 
 # Run E2E tests (requires Docker)
@@ -243,6 +245,16 @@ All services export traces via OpenTelemetry (Java agent + Micrometer bridge) an
 
 ```
 pulsemart-distributed-system/
+├── backend/                 # Java / Spring Boot monorepo (Gradle)
+│   ├── api-gateway/         # Spring Cloud Gateway + JWT auth (port 8080)
+│   ├── order-service/       # Saga coordinator (port 8081)
+│   ├── inventory-service/   # Inventory management (port 8082)
+│   ├── payment-service/     # Payment processing (port 8083)
+│   ├── ai-summarizer/       # AI-powered order summarization (port 8088)
+│   ├── shared-lib/          # Event envelopes, types, and payloads
+│   ├── e2e-tests/           # Full saga E2E tests (TestContainers + WireMock)
+│   ├── build.gradle         # Root Gradle build
+│   └── settings.gradle      # Module includes
 ├── frontend/                # React + Vite SPA
 │   ├── src/
 │   │   ├── api/             # Axios client with JWT interceptor
@@ -251,13 +263,6 @@ pulsemart-distributed-system/
 │   │   └── pages/           # Login, PlaceOrder, OrdersList, OrderDetail
 │   ├── Dockerfile           # Multi-stage: node build → nginx serve
 │   └── nginx.conf           # SPA fallback, port 3001
-├── api-gateway/             # Spring Cloud Gateway + JWT auth (port 8080)
-├── order-service/           # Saga coordinator (port 8081)
-├── inventory-service/       # Inventory management (port 8082)
-├── payment-service/         # Payment processing (port 8083)
-├── ai-summarizer/           # AI-powered order summarization (port 8088)
-├── shared-lib/              # Event envelopes, types, and payloads
-├── e2e-tests/               # Full saga E2E tests (TestContainers + WireMock)
 └── infra/
     ├── docker-compose.yml
     ├── kafka/               # Topic initialization script

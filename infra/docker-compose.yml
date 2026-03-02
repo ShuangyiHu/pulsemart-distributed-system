@@ -165,13 +165,13 @@ services:
     depends_on:
       - prometheus
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Application Services
-# ─────────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Application Services
+  # ─────────────────────────────────────────────────────────────────────────────
 
   order-service:
     build:
-      context: ..
+      context: ../backend
       dockerfile: order-service/Dockerfile
     container_name: order-service
     networks: [pulsemart-net]
@@ -198,7 +198,7 @@ services:
 
   inventory-service:
     build:
-      context: ..
+      context: ../backend
       dockerfile: inventory-service/Dockerfile
     container_name: inventory-service
     networks: [pulsemart-net]
@@ -224,7 +224,7 @@ services:
 
   payment-service:
     build:
-      context: ..
+      context: ../backend
       dockerfile: payment-service/Dockerfile
     container_name: payment-service
     networks: [pulsemart-net]
@@ -251,7 +251,7 @@ services:
 
   api-gateway:
     build:
-      context: ..
+      context: ../backend
       dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
     networks: [pulsemart-net]
@@ -285,7 +285,7 @@ services:
 
   ai-summarizer:
     build:
-      context: ..
+      context: ../backend
       dockerfile: ai-summarizer/Dockerfile
     container_name: ai-summarizer
     networks: [pulsemart-net]
